@@ -1,0 +1,239 @@
+Table Организация {
+  id integer [primary key]
+  название varchar [not null]
+  адрес varchar
+  телефон varchar
+  
+  note: 'Организация (ООО Молочный комбинат "Полесье")'
+}
+
+Table Заказчик {
+  id varchar [primary key]
+  название varchar [not null]
+  ИНН varchar
+  адрес varchar
+  телефон varchar
+  является_поставщиком boolean [default: false]
+  является_покупателем boolean [default: false]
+  
+  indexes {
+    ИНН [unique]
+    название
+  }
+  note: 'Контрагенты из Заказчики.json'
+}
+
+Table Продукция {
+  код varchar [primary key]
+  наименование varchar [not null]
+  единица_измерения varchar [not null]
+  
+  indexes {
+    наименование
+  }
+  note: 'Готовая продукция (из Производство.xlsx)'
+}
+
+Table Материал {
+  код varchar [primary key]
+  наименование varchar [not null]
+  единица_измерения varchar [not null]
+  
+  indexes {
+    наименование
+  }
+  note: 'Сырье и материалы (из Производство.xlsx)'
+}
+
+// --------------------
+// ЦЕНООБРАЗОВАНИЕ
+// --------------------
+
+Table Цена_продукции {
+  id integer [primary key]
+  код_продукции varchar [ref: > Продукция.код]
+  цена decimal [not null]
+  дата_начала_действия date [not null]
+  дата_окончания_действия date
+  
+  indexes {
+    код_продукции
+    дата_начала_действия
+  }
+  note: 'Цены на продукцию из Цены.xlsx'
+}
+
+Table Цена_материала {
+  id integer [primary key]
+  код_материала varchar [ref: > Материал.код]
+  цена decimal [not null]
+  дата_начала_действия date [not null]
+  дата_окончания_действия date
+  
+  indexes {
+    код_материала
+    дата_начала_действия
+  }
+  note: 'Цены на материалы из Цены.xlsx'
+}
+
+// --------------------
+// ТЕХНОЛОГИЧЕСКАЯ ЧАСТЬ
+// --------------------
+
+Table Спецификация {
+  id integer [primary key]
+  наименование varchar [not null]
+  код_продукции varchar [ref: > Продукция.код]
+  количество_продукции decimal [not null]
+  единица_измерения_продукции varchar [not null]
+  активна boolean [default: true]
+  
+  indexes {
+    код_продукции
+    наименование
+  }
+  note: 'Технологические карты из Спецификация.xlsx'
+}
+
+Table Состав_спецификации {
+  id integer [primary key]
+  id_спецификации integer [ref: > Спецификация.id]
+  код_материала varchar [ref: > Материал.код]
+  количество_материала decimal [not null]
+  единица_измерения_материала varchar [not null]
+  
+  indexes {
+    (id_спецификации, код_материала) [unique]
+  }
+  note: 'Строки спецификации из Спецификация.xlsx'
+}
+
+// --------------------
+// ПРОИЗВОДСТВО
+// --------------------
+
+Table Производственный_заказ {
+  номер varchar [primary key]
+  дата date [not null]
+  id_спецификации integer [ref: > Спецификация.id]
+  количество_партий integer [not null]
+  статус varchar [default: 'планируется']
+  
+  indexes {
+    дата
+    id_спецификации
+  }
+  note: 'Производственные задания из Производство.xlsx'
+}
+
+Table Производственная_партия {
+  id integer [primary key]
+  номер_заказа varchar [ref: > Производственный_заказ.номер]
+  код_продукции varchar [ref: > Продукция.код]
+  количество decimal [not null]
+  дата_производства date [not null]
+  срок_годности date
+  
+  indexes {
+    номер_заказа
+    дата_производства
+  }
+  note: 'Произведенные партии продукции'
+}
+
+// --------------------
+// СБЫТ И ЗАКАЗЫ
+// --------------------
+
+Table Заказ_покупателя {
+  номер varchar [primary key]
+  дата date [not null]
+  id_заказчика varchar [ref: > Заказчик.id]
+  статус varchar [default: 'новый']
+  общая_сумма decimal
+  
+  indexes {
+    дата
+    id_заказчика
+  }
+  note: 'Заказы из Заказ покупателя.xlsx'
+}
+
+Table Позиция_заказа {
+  id integer [primary key]
+  номер_заказа varchar [ref: > Заказ_покупателя.номер]
+  код_продукции varchar [ref: > Продукция.код]
+  количество decimal [not null]
+  цена decimal [not null]
+  сумма decimal [not null]
+  
+  indexes {
+    номер_заказа
+    код_продукции
+  }
+  note: 'Позиции заказа из Заказ покупателя.xlsx'
+}
+
+// --------------------
+// СКЛАДСКОЙ УЧЕТ
+// --------------------
+
+Table Остатки_продукции {
+  id integer [primary key]
+  код_продукции varchar [ref: > Продукция.код]
+  количество decimal [not null]
+  единица_измерения varchar [not null]
+  дата_обновления datetime [not null]
+  
+  indexes {
+    код_продукции [unique]
+  }
+  note: 'Текущие остатки готовой продукции'
+}
+
+Table Остатки_материалов {
+  id integer [primary key]
+  код_материала varchar [ref: > Материал.код]
+  количество decimal [not null]
+  единица_измерения varchar [not null]
+  дата_обновления datetime [not null]
+  
+  indexes {
+    код_материала [unique]
+  }
+  note: 'Текущие остатки сырья'
+}
+
+// --------------------
+// РАСЧЕТ СЕБЕСТОИМОСТИ
+// --------------------
+
+Table Расчет_себестоимости {
+  id integer [primary key]
+  код_продукции varchar [ref: > Продукция.код]
+  дата_расчета date [not null]
+  себестоимость decimal [not null]
+  цена_продажи decimal
+  
+  indexes {
+    код_продукции
+    дата_расчета
+  }
+  note: 'Расчеты стоимости из Расчет стоимости продукции.xlsx'
+}
+
+Table Состав_себестоимости {
+  id integer [primary key]
+  id_расчета integer [ref: > Расчет_себестоимости.id]
+  код_материала varchar [ref: > Материал.код]
+  количество decimal [not null]
+  цена_материала decimal [not null]
+  стоимость decimal [not null]
+  
+  indexes {
+    id_расчета
+    код_материала
+  }
+  note: 'Компоненты себестоимости продукции'
+} 
